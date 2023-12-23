@@ -1,8 +1,9 @@
-from PIL import Image,ImageDraw,ImageFont
+from PIL import Image,ImageDraw,ImageFont, ImageColor
 import textwrap
 from PIL import *
 import PIL
 from .version import __version__
+
 class Drawtable:
     """
     Use to create or draw table using PILLOW
@@ -73,6 +74,7 @@ class Drawtable:
         self.line_color =  kwargs.get("line_color","#000000")
         self.header_color = kwargs.get("header_color","#000000")
         self.text_color = kwargs.get("text_color","#000000")
+        self.show_img = kwargs.get("show_img", True)
         self.save = kwargs.get("save",None)
         self.align = kwargs.get("text_align",'center')
         self.anchor = kwargs.get("text_anchor","la")
@@ -158,6 +160,13 @@ class Drawtable:
         
     """
     
+    def __draw_rect(self, xy, fill = None):
+        if fill is None:
+            fill = ImageColor.getrgb('white')
+
+        return self.__draw.rectangle(xy, fill = fill)
+
+
     def __draw_text(self,xy, text="text",font=None,fill=None):
         if font is None: font = self.font
         if fill is None : fill = self.text_color   
@@ -174,31 +183,54 @@ class Drawtable:
                 cur_h = 0
                 for row_idx,row in enumerate(self.data):
                     h_c= []
-                    if row_idx==0 and self.outer_frame: self.__draw_line(self.x_init,self.y_rate-int(self.line_spacer//2),self.xend,self.y_rate-int(self.line_spacer//2)) #horizontal
-                    for num_columns,j in enumerate(row):
+                    for num_columns,cell in enumerate(row):
+                        j = cell.getText()
+                        backgroundColor = ImageColor.getrgb('#5eb91e') if cell.hasGreenBackground() else ImageColor.getrgb('white')
                         lines = textwrap.wrap(str(j),width=((self.__width_per_cell[num_columns])-(self.margin)))
+                        # If there is no line to render, also the background rendering is skipped
+                        # So just add an empty string in case lines is an empty list
+                        if len(lines) == 0:
+                            lines = [""]
                         cur_h=self.y_rate  
                         for idx,line in enumerate(lines): 
+                            height = 16
+                            rectInit = (self.x_init + sum(self.__width_per_cell[:num_columns]), cur_h - self.line_spacer // 2)
+                            rectXy = [rectInit, (rectInit[0] + self.__width_per_cell[num_columns], rectInit[1] + height + self.line_spacer)]
+
                             if row_idx==0 and self.header_frame:
-                                width, height = self.header_font.getsize(line)
+                                # width, height = self.header_font.getbbox(line)[2:4]
                                 xy=self.x_init+self.margin+(sum(self.__width_per_cell[:num_columns])),cur_h
+                                self.__draw_rect(rectXy, backgroundColor)
                                 self.__draw_text(xy,text=line,font=self.header_font,fill=self.header_color)
                                 cur_h+=height
                             else:
-                                width, height = self.font.getsize(line)
+                                # width, height = self.font.getbbox(line)[2:4]
                                 xy=self.x_init+self.margin+(sum(self.__width_per_cell[:num_columns])),cur_h
+                                self.__draw_rect(rectXy, backgroundColor)
                                 self.__draw_text(xy,text=line,fill=self.text_color)
                                 cur_h+=height
                         h_c.append(cur_h)
 
-
-                    self.y_rate = max(h_c)+self.line_spacer
-                    if (self.inner_frame or self.rows_frame) and row_idx!=len(self.data)-1:self.__draw_line(self.x_init,self.y_rate-int(self.line_spacer//2),self.xend,self.y_rate-int(self.line_spacer//2)) #horizontal
-                    if self.header_frame and row_idx==0 : self.__draw_line(self.x_init,self.y_rate-int(self.line_spacer//2),self.xend,self.y_rate-int(self.line_spacer//2)) #horizontal
-                    if row_idx==len(self.data)-1 and self.outer_frame:
+                    # Draw first (upper) outer line
+                    if row_idx==0 and self.outer_frame: 
                         self.__draw_line(self.x_init,self.y_rate-int(self.line_spacer//2),self.xend,self.y_rate-int(self.line_spacer//2)) #horizontal
 
-                #self.draw_line(self.x_init,self.y_init-int(self.line_spacer//2),self.x_init,self.y_rate-int(self.line_spacer//2))
+                    # Draw header bottom line
+                    if self.header_frame and row_idx==1 : 
+                        self.__draw_line(self.x_init,self.y_rate-int(self.line_spacer//2),self.xend,self.y_rate-int(self.line_spacer//2)) #horizontal
+
+                    # Draw current cell upper line
+                    if (self.inner_frame or self.rows_frame) and row_idx > 1:self.__draw_line(self.x_init,self.y_rate-int(self.line_spacer//2),self.xend,self.y_rate-int(self.line_spacer//2)) #horizontal
+
+                    # Update current y height to start rendering next row
+                    self.y_rate = max(h_c)+self.line_spacer
+                    
+                    # Draw last outer line
+                    if row_idx==len(self.data)-1 and self.outer_frame:
+                        self.__draw_line(self.x_init,self.y_rate-int(self.line_spacer//2),self.xend,self.y_rate-int(self.line_spacer//2)) #horizontal
+                    
+
+                # self.draw_line(self.x_init,self.y_init-int(self.line_spacer//2),self.x_init,self.y_rate-int(self.line_spacer//2))
 
 
                 if self.inner_frame or self.columns_frame:
@@ -216,7 +248,9 @@ class Drawtable:
                         else: save = self.save
                         self.__test_back.save(save)
                         print(f"Image saved as {save}")
-                    return self.__test_back.show()
+                    if self.show_img:
+                        self.__test_back.show()
+                    return 
                 
                 
             except:
