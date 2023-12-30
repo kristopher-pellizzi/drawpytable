@@ -1,3 +1,4 @@
+import os
 from PIL import Image,ImageDraw,ImageFont, ImageColor
 import textwrap
 from PIL import *
@@ -50,7 +51,8 @@ class Drawtable:
 
         image_width,image_height=0,0
         if font is None:
-            font = PIL.ImageFont.truetype("assets/arial.ttf", font_size)
+            font_path = os.path.join(os.path.dirname(__file__), 'assets', 'arial.ttf')
+            font = PIL.ImageFont.truetype(font_path, font_size)
         if type(font) != PIL.ImageFont.FreeTypeFont:raise ValueError("Font type expected to be Pillow Font eg : h2_font=   ImageFont.truetype('TimesNewRoman/times new roman.ttf', font_size)'")
         if not isinstance(data,list): raise ValueError("data must be a list eg: [(1,2),(2,3)]")
         if xend is not None and xend < x: raise ValueError('xend must be greater than x')
